@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import xtrack as xt
-from curvedboris import *
 import time
 
+from curvedboris import *
+from bpmeth_cubic import mk_field
 
 def track_xsuite(
     k0=0.1,
@@ -29,16 +30,24 @@ def track_xsuite(
     res = ln.record_last_track
     return res
 
+
+#comp=mk_field(ab_order=2,sorder=3,out="cubic_bp.py")
+#def efield(x, y, s, t, h, pars):
+#    return 0, 0, 0
+#
+from cubic_bp import bfield, afield
+
 # Field model
 def efield(x, y, s, t, h, pars):
     return 0, 0, 0
 
-def bfield(x, y, s, t, h, pars):
-    B0 = pars[0]
-    return 0, B0, 0
+#def bfield(x, y, s, t, h, pars):
+#    B0 = pars[0]
+#    return 0, B0, 0
 
 efield = njit(efield, cache=True)
-bfield = njit(bfield, cache=True)
+#bfield = njit(bfield, cache=True)
+
 
 def track(
     k0=0.1,
@@ -64,7 +73,9 @@ def track(
     B0 = (k0 * p0_SI) / q  # from k0 = q B0 / p0
 
     epars = np.array([0.0], dtype=np.float64)
-    bpars = np.array([B0], dtype=np.float64)
+    comp=np.zeros((10,10),dtype=float)
+    comp[1,0] = B0
+    bpars=comp
     # ---- Build initial state (with momentum offset delta) ----
     px0 = px * p0_SI
     py0 = py * p0_SI
@@ -117,3 +128,18 @@ print("err px",res1['px'][-1]-res0.px[0][-1])
 print("err y",res1['y'][-1]-res0.y[0][-1])
 print("err py",res1['py'][-1]-res0.py[0][-1])
 print("err zeta",res1['zeta'][-1]-res0.zeta[0][-1])
+
+
+
+class Cubic:
+    is_thick=True
+    def __init__(self,comp,length,ds,h):
+        self.comp=comp
+        self.length=length
+        self.ds=ds
+        self.h=h
+        
+
+
+
+

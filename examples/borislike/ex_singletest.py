@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import xtrack as xt
-from integrator9b import *
+from curvedboris import *
 import time
 
 

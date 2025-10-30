@@ -431,7 +431,7 @@ def integrate_numba(
     S, X, Y, T, PX, PY, PS, EE, G = _integrate4_jit(
         state_array, s_span[0], s_span[1], ds, h, m, q, c, efield, bfield, epars, bpars
     )
-    print("_integrate_jit signatures:", len(_integrate_jit.signatures))
+    #print("_integrate_jit signatures:", len(_integrate_jit.signatures))
     return {
         "s": S,
         "x": X,
@@ -450,7 +450,18 @@ def integrate_numba_vect_final(
     final_states = _integrate4_jit_vect_final(
         state_array, s_span[0], s_span[1], ds, h, m, q, c, efield, bfield, epars, bpars
     )
-    return final_states
+    S, X, Y, T, PX, PY, PS, EE, G=final_states.T
+    return {
+        "s": S,
+        "x": X,
+        "y": Y,
+        "t": T,
+        "px": PX,
+        "py": PY,
+        "ps": PS,
+        "e": EE,
+        "g": G,
+    }
 
 
 def plot_zx(h, s, x, lbl="Particle R(s)", ref=True, ax=None):
