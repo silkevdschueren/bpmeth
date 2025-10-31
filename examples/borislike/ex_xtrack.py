@@ -151,7 +151,7 @@ def mk_line_boris(
     return line
 
 
-
+plt.figure()
 for step in (10.)**-np.arange(2, 8):
   steps_r_matrix = {
     "dx": step,
@@ -181,6 +181,7 @@ for step in (10.)**-np.arange(2, 8):
   plt.show()
 
 
+plt.figure()
 for step in (10.)**-np.arange(2, 8):
   steps_r_matrix = {
     "dx": step,
