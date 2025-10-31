@@ -34,7 +34,7 @@ class CubicMagnet:
         beta_gamma_ini = p_ini / (m * c)
         gamma_ini = np.sqrt(1.0 + beta_gamma_ini**2)
         e_ini = gamma_ini * m * c * c
-        t_ini = part.zeta / part.beta0 / c
+        t_ini = -part.zeta / part.beta0 / c
 
         state = make_state(
             s=part.s,
@@ -70,7 +70,7 @@ class CubicMagnet:
         ay = ay * q / p0_SI
         part.px = out["px"] / p0_SI + ax
         part.py = out["py"] / p0_SI + ay
-        part.zeta = out["s"] - out["t"] * part.beta0 * c
+        part.zeta = self.length - out["t"] * part.beta0 * c
         p = np.sqrt(out["px"] ** 2 + out["py"] ** 2 + out["ps"] ** 2) / p0_SI
         part.delta = p  - 1.0
         part.ax = ax
@@ -100,7 +100,7 @@ def track_boris(
 ):
     comp = np.zeros((9, 4), dtype=np.float64)
     c = 299_792_458.0
-    comp[1, 0] = k0 * part.p0c / part.q0 / c  # from k0 = q B0 / p0
+    comp[1, 0] = k0 * part.p0c[0] / part.q0 / c  # from k0 = q B0 / p0
     cubic_mag = CubicMagnet(comp, length=length, ds=ds, h=h)
     part = part.copy()
     cubic_mag.track(part)
@@ -115,10 +115,10 @@ part = xt.Particles(
     x=np.array([0.1], dtype=np.float64),
     y=np.array([0.0], dtype=np.float64),
     px=np.array([0.1], dtype=np.float64),
-    py=np.array([0.0], dtype=np.float64),
-    delta=np.array([0.0], dtype=np.float64),
-    zeta=np.array([0.0], dtype=np.float64),
-    s=np.array([0.0], dtype=np.float64),
+    py=np.array([0.1], dtype=np.float64),
+    delta=np.array([0.1], dtype=np.float64),
+    zeta=np.array([0.1], dtype=np.float64),
+    s=np.array([1.0], dtype=np.float64),
     mass0=938272088.16,
     q0=1.0,
     p0c=1e9,
@@ -127,7 +127,30 @@ part = xt.Particles(
 part_xsuite = track_xsuite(part, k0=k0, h=h, length=length)
 part_boris = track_boris(part, k0=k0, h=h, length=length)
 
-for aa in ['x','y','px','py','delta','zeta']:
+for aa in ['x','y','px','py','delta','zeta','s']:
     vv1=getattr(part_xsuite,aa)
     vv2=getattr(part_boris,aa)
     print(f"{aa}: xsuite={vv1}, boris={vv2}, diff={vv1-vv2}")
+
+
+def mk_line_boris(
+    k0=0.1,
+    h=0.1,
+    length=10,
+    ds=0.1,
+    p0c=1e9,
+    mass0=938272088.16,
+    q0=1,
+):
+    comp = np.zeros((9, 4), dtype=np.float64)
+    c = 299_792_458.0
+    comp[1, 0] = k0 * part.p0c[0] / part.q0 / c  # from k0 = q B0 / p0
+    cubic_mag = CubicMagnet(comp, length=length, ds=ds, h=h)
+    line=xt.Line([cubic_mag])
+    line.set_particle_ref(p0c, mass0=mass0, q0=q0)
+    return line
+
+line=mk_line_boris(ds=0.001)
+line.twiss(betx=1,bety=1,include_collective=True)
+rmat= line.compute_one_turn_matrix_finite_differences(particle_on_co=line.particle_ref,include_collective=True)['R_matrix']
+np.prod(np.linalg.eigvals(rmat))
