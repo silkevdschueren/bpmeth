@@ -23,14 +23,21 @@ def _kin_half_drift2_jit(state, ds, h, m, c):
     # st: array length 9
     s, x, y, t, px, py, ps, e, g = state
     a = px / ps
-    g_in = 1.0 + h * x
     Delta = 0.5 * ds
-    ahD = a * h * Delta
-    em1 = np.expm1(ahD)
-    x_out = (1.0 + em1) * (x + 1.0 / h) - 1.0 / h
-    I = (g_in / a) * em1
-    y_out = y + (py / ps) * I/h
-    t_out = t + (e / (c * c * ps)) * I/h
+    if abs(a) < 1e-16 or abs(h) < 1e-10:
+        # when a ≈ 0, x is (near) constant and g ≈ constant
+        x_out = x + Delta * g * a
+        I = Delta * g
+        y_out = y + (py / ps) * I
+        t_out = t + (e / (c * c * ps)) * I
+    else:
+        ahD = a * h * Delta
+        g_in = 1.0 + h * x
+        em1 = np.expm1(ahD)
+        I = (g_in / a) * em1
+        x_out = (1.0 + em1) * (x + 1.0 / h) - 1.0 / h
+        y_out = y + (py / ps) * I/h
+        t_out = t + (e / (c * c * ps)) * I/h
     #print(I/h, 0.5 * ds * g)
 
     state[0] = s + Delta
@@ -307,7 +314,7 @@ def _step_jit(state, ds, h, m, q, c, E_func, B_func, E_pars, B_pars):
     _geom_half_rot_jit(state, ds, h)
     _em_full_step_jit2(state, ds, h, q, m, c, E_func, B_func, E_pars, B_pars)
     _geom_half_rot_jit(state, ds, h)
-    _kin_half_drift_jit(state, ds, h, m, c)
+    _kin_half_drift2_jit(state, ds, h, m, c)
 
 
 @njit(cache=True)
