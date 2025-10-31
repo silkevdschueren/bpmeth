@@ -3,78 +3,7 @@ import matplotlib.pyplot as plt
 import xtrack as xt
 import numba
 
-from curvedboris import make_state, integrate_numba_vect_final
-from cubic_bp import bfield, afield
-
-
-@numba.njit(cache=True)
-def efield(x, y, s, t, h, pars):
-    return 0, 0, 0
-
-
-class CubicMagnet:
-    is_thick = True
-
-    def __init__(self, comp, length, ds, h):
-        self.comp = comp
-        self.length = length
-        self.ds = ds
-        self.h = h
-
-    def track(self, part):
-        c = 299_792_458.0
-        qe = +1.602176634e-19
-        q = qe * part.q0
-        m = part.mass0 * qe / c**2
-        p0_SI = (part.p0c * qe) / c
-        epars = np.array([0.0], dtype=np.float64)
-        px_ini = (part.px - part.ax) * p0_SI
-        py_ini = (part.py - part.ay) * p0_SI
-        p_ini = p0_SI * (1.0 + part.delta)
-        beta_gamma_ini = p_ini / (m * c)
-        gamma_ini = np.sqrt(1.0 + beta_gamma_ini**2)
-        e_ini = gamma_ini * m * c * c
-        t_ini = -part.zeta / part.beta0 / c
-
-        state = make_state(
-            s=part.s,
-            x=part.x,
-            y=part.y,
-            t=t_ini,
-            px=px_ini,
-            py=py_ini,
-            e=e_ini,
-            h=self.h,
-            m=m,
-            c=c,
-        ).T
-        out = integrate_numba_vect_final(
-            state,
-            (part.s[0], part.s[0] + self.length),
-            self.ds,
-            self.h,
-            efield,
-            bfield,
-            epars,
-            self.comp,
-            m,
-            q,
-            c,
-        )
-
-        part.x = out["x"]
-        part.y = out["y"]
-        part.s = out["s"]
-        ax, ay, _ = afield(part.x, part.y, part.s, 0, self.h, self.comp)
-        ax = ax * q / p0_SI
-        ay = ay * q / p0_SI
-        part.px = out["px"] / p0_SI + ax
-        part.py = out["py"] / p0_SI + ay
-        part.zeta = self.length - out["t"] * part.beta0 * c
-        p = np.sqrt(out["px"] ** 2 + out["py"] ** 2 + out["ps"] ** 2) / p0_SI
-        part.delta = p - 1.0
-        part.ax = ax
-        part.ay = ay
+from cubicmagnet import CubicMagnet
 
 
 def track_xsuite(
@@ -125,7 +54,7 @@ part = xt.Particles(
 )
 
 part_xsuite = track_xsuite(part, k0=k0, h=h, length=length)
-part_boris = track_boris(part, k0=k0, h=h, length=length)
+part_boris = track_boris(part, k0=k0, h=h, length=length, ds=ds)
 
 for aa in ["x", "y", "px", "py", "delta", "zeta", "s"]:
     vv1 = getattr(part_xsuite, aa)
@@ -152,65 +81,69 @@ def mk_line_boris(
 
 
 plt.figure()
-for step in (10.)**-np.arange(2, 8):
-  steps_r_matrix = {
-    "dx": step,
-    "dpx": step,
-    "dy": step,
-    "dpy": step,
-    "dzeta": step,
-    "ddelta": step,
-  }
-  err = []
-  for ds in np.logspace(-1, -5, 13):
-    line = mk_line_boris(ds=ds)
-    line.build_tracker()
-    rmat = line.compute_one_turn_matrix_finite_differences(
-        particle_on_co=line.particle_ref, include_collective=True,
-        steps_r_matrix=steps_r_matrix
-    )["R_matrix"]
-    err.append((ds, 1 - np.prod(np.linalg.eigvals(rmat))))
+for step in (10.0) ** -np.arange(2, 8):
+    steps_r_matrix = {
+        "dx": step,
+        "dpx": step,
+        "dy": step,
+        "dpy": step,
+        "dzeta": step,
+        "ddelta": step,
+    }
+    err = []
+    for ds in np.logspace(-1, -5, 13):
+        line = mk_line_boris(ds=ds)
+        line.build_tracker()
+        rmat = line.compute_one_turn_matrix_finite_differences(
+            particle_on_co=line.particle_ref,
+            include_collective=True,
+            steps_r_matrix=steps_r_matrix,
+        )["R_matrix"]
+        err.append((ds, abs(1 - np.prod(np.linalg.eigvals(rmat)))))
 
+    err = np.array(err)
+    plt.loglog(err[:, 0], np.abs(err[:, 1]), "-o", label=f"step={step}")
 
-  err = np.array(err)
-  plt.loglog(err[:, 0], np.abs(err[:, 1]), "-o",label=f"step={step}")
-  plt.xlabel("ds [m]")
-  plt.ylabel("Symplectic error")
-  plt.title("Symplectic error vs ds for one turn matrix with Boris-like integrator")
-  plt.grid()
-  plt.show()
+plt.xlabel("ds [m]")
+plt.ylabel("Symplectic error")
+plt.title("Symplectic error vs ds for one turn matrix with Boris-like integrator")
+plt.grid()
+plt.show()
 
 
 plt.figure()
-for step in (10.)**-np.arange(2, 8):
-  steps_r_matrix = {
-    "dx": step,
-    "dpx": step,
-    "dy": step,
-    "dpy": step,
-    "dzeta": step,
-    "ddelta": step,
-  }
-  err = []
-  for ds in np.logspace(-1, -3, 5):
-    line = xt.Line([xt.Bend(length=ds, k0=0.1, h=0.1, model="bend-kick-bend")] * int(10 / ds))
-    line.build_tracker()
-    line.particle_ref = xt.Particles(
-        mass0=938272088.16,
-        q0=1.0,
-        p0c=1e9,
-    )
-    rmat = line.compute_one_turn_matrix_finite_differences(
-        particle_on_co=line.particle_ref, include_collective=True,
-        steps_r_matrix=steps_r_matrix
-    )["R_matrix"]
-    err.append((ds, 1 - np.prod(np.linalg.eigvals(rmat))))
+for step in (10.0) ** -np.arange(2, 8):
+    steps_r_matrix = {
+        "dx": step,
+        "dpx": step,
+        "dy": step,
+        "dpy": step,
+        "dzeta": step,
+        "ddelta": step,
+    }
+    err = []
+    for ds in np.logspace(-1, -3, 5):
+        line = xt.Line(
+            [xt.Bend(length=ds, k0=0.1, h=0.1, model="bend-kick-bend")] * int(10 / ds)
+        )
+        line.build_tracker()
+        line.particle_ref = xt.Particles(
+            mass0=938272088.16,
+            q0=1.0,
+            p0c=1e9,
+        )
+        rmat = line.compute_one_turn_matrix_finite_differences(
+            particle_on_co=line.particle_ref,
+            include_collective=True,
+            steps_r_matrix=steps_r_matrix,
+        )["R_matrix"]
+        err.append((ds, abs(1 - np.prod(np.linalg.eigvals(rmat)))))
+    err = np.array(err)
+    plt.loglog(err[:, 0], np.abs(err[:, 1]), "-o", label=f"step={step}")
 
-  err = np.array(err)
-  plt.loglog(err[:, 0], np.abs(err[:, 1]), "-o",label=f"step={step}")
-  plt.xlabel("ds [m]")
-  plt.ylabel("Symplectic error")
-  plt.title("Symplectic error vs ds for one turn matrix with Sbend integrator")
-  plt.grid()
-  plt.show()
-  legend = plt.legend()
+plt.xlabel("ds [m]")
+plt.ylabel("Symplectic error")
+plt.title("Symplectic error vs ds for one turn matrix with Sbend integrator")
+plt.grid()
+plt.legend()
+plt.show()

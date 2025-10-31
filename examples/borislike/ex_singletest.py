@@ -29,16 +29,20 @@ def track_xsuite(
     res = ln.record_last_track
     return res
 
+
 # Field model
 def efield(x, y, s, t, h, pars):
     return 0, 0, 0
+
 
 def bfield(x, y, s, t, h, pars):
     B0 = pars[0]
     return 0, B0, 0
 
+
 efield = njit(efield, cache=True)
 bfield = njit(bfield, cache=True)
+
 
 def track(
     k0=0.1,
@@ -79,9 +83,7 @@ def track(
     beta0 = beta0_gamma0 / gamma0
     t0 = zeta / beta0 / c
 
-    st0 = make_state(
-        s=0.0, x=x, y=y, t=t0, px=px0, py=py0, e=e0, h=h, m=m, c=c
-    )
+    st0 = make_state(s=0.0, x=x, y=y, t=t0, px=px0, py=py0, e=e0, h=h, m=m, c=c)
 
     # ---- Integrate over the requested magnet length ----
     st = time.time()
@@ -104,14 +106,41 @@ py = 0.1
 res0 = track_xsuite(l=l, h=h, k0=k0, ds=ds, x=x, px=px, delta=delta, y=y, py=py)
 res1 = track(l=l, h=h, k0=k0, ds=ds, x=x, px=px, delta=delta, y=y, py=py)
 
-#plt.plot(res0.s[0],res1['x']-res0.x[0])
-#plt.plot(res0.s[0],res0.y[0])
-#plt.plot(res0.s[0],res1['y'])
-#plt.plot(res0.s[0],res0.zeta[0])
-#plt.plot(res0.s[0],res1['zeta'])
+# plt.plot(res0.s[0],res1['x']-res0.x[0])
+# plt.plot(res0.s[0],res0.y[0])
+# plt.plot(res0.s[0],res1['y'])
+# plt.plot(res0.s[0],res0.zeta[0])
+# plt.plot(res0.s[0],res1['zeta'])
 
 
-plt.plot(res0.s[0],res1['x']-res0.x[0])
-plt.plot(res0.s[0],res1['y']-res0.y[0])
-plt.plot(res0.s[0],res1['zeta']-res0.zeta[0])
+plt.figure()
+plt.plot(res0.s[0], res1["x"] - res0.x[0])
+plt.plot(res0.s[0], res1["y"] - res0.y[0])
+plt.plot(res0.s[0], res1["zeta"] - res0.zeta[0])
 
+
+plt.figure()
+
+res0 = track_xsuite(l=l, h=h, k0=k0, ds=l, x=x, px=px, delta=delta, y=y, py=py)
+err = []
+for ds in (10.0) ** -np.arange(1, 6, 0.5):
+    res1 = track(l=l, h=h, k0=k0, ds=ds, x=x, px=px, delta=delta, y=y, py=py)
+    err.append(
+        [
+            ds,
+            res1["x"][-1] - res0.x[0][-1],
+            res1["y"][-1] - res0.y[0][-1],
+            res1["zeta"][-1] - res0.zeta[0][-1],
+        ]
+    )
+
+
+err = np.array(err)
+plt.loglog(err[:, 0], np.abs(err[:, 1]), "-o", label="x")
+plt.loglog(err[:, 0], np.abs(err[:, 2]), "-o", label="y")
+plt.loglog(err[:, 0], np.abs(err[:, 3]), "-o", label="zeta")
+plt.xlabel("ds [m]")
+plt.ylabel("Difference [m]")
+plt.legend()
+plt.grid()
+plt.title("Error with Sbend vs ds")

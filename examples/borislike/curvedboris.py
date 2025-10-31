@@ -24,14 +24,23 @@ def _kin_half_drift2_jit(state, ds, h, m, c):
     s, x, y, t, px, py, ps, e, g = state
     a = px / ps
     Delta = 0.5 * ds
+    ahD = a * h * Delta
     if abs(a) < 1e-16 or abs(h) < 1e-10:
         # when a ≈ 0, x is (near) constant and g ≈ constant
         x_out = x + Delta * g * a
         I = Delta * g
         y_out = y + (py / ps) * I
         t_out = t + (e / (c * c * ps)) * I
+    elif abs(ahD) < 1e-8:
+        # series expansions to avoid loss of significance
+        # exp(ahD) - 1 ≈ ahD + 1/2 (ahD)^2
+        em1 = ahD + 0.5 * ahD * ahD
+        # x_out ≈ x_in + Δ * a * g_in + 1/2 Δ^2 * a^2 * h * g_in
+        x_out = x + Delta * a * g + 0.5 * (Delta * Delta) * (a * a * h) * g
+        I = (g / a) * em1
+        y_out = y + (py / ps) * I/h
+        t_out = t + (e / (c * c * ps)) * I/h
     else:
-        ahD = a * h * Delta
         g_in = 1.0 + h * x
         em1 = np.expm1(ahD)
         I = (g_in / a) * em1
