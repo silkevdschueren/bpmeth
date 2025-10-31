@@ -24,8 +24,8 @@ class CubicMagnet:
         m = part.mass0 * qe / c**2
         p0_SI = (part.p0c * qe) / c
         epars = np.array([0.0], dtype=np.float64)
-        px_ini = (part.px - part.ax) * p0_SI
-        py_ini = (part.py - part.ay) * p0_SI
+        px_ini = part.kin_px * p0_SI
+        py_ini = part.kin_py * p0_SI
         p_ini = p0_SI * (1.0 + part.delta)
         beta_gamma_ini = p_ini / (m * c)
         gamma_ini = np.sqrt(1.0 + beta_gamma_ini**2)
@@ -71,5 +71,7 @@ class CubicMagnet:
         part.delta = p - 1.0
         part.ax = ax
         part.ay = ay
+        assert part.kin_px==out["px"] / p0_SI
+        assert part.kin_py==out["py"] / p0_SI
 
 
