@@ -35,7 +35,7 @@ def track_boris(
     cubic_mag = CubicMagnet(comp, length=length, ds=ds, h=0.0)
     part = part.copy()
     cubic_mag.track(part)
-    return part
+    return part,cubic_mag
 
 
 k1 = 0.001
@@ -56,7 +56,7 @@ part = xt.Particles(
 
 
 part_xsuite = track_xsuite(part, k1=k1, length=length,kicks=2*7+1)
-part_boris = track_boris(part, k1=k1, length=length, ds=ds)
+part_boris,mag = track_boris(part, k1=k1, length=length, ds=ds)
 
 for aa in ["x", "y", "px", "py", "delta", "zeta", "s"]:
     vv1 = getattr(part_xsuite, aa)

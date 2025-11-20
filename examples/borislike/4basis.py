@@ -6,11 +6,16 @@ def f(x, x0, x1, c1, c2, c3, c4, c5):
     t = (x - x0) / L
 
     # basis functions on [0,1]
+    # b(0)=1 b'(0)=0 b(1)=0 b'(1)=0 int(b1,0,1)=0
     b1 = 1 - 18*t**2 + 32*t**3 - 15*t**4
+    # b(0)=0 b'(0)=1 b(1)=0 b'(1)=0 int(b1,0,1)=0
     b2 = t - 4.5*t**2 + 6*t**3 - 2.5*t**4
+    # b(0)=0 b'(0)=0 b(1)=1 b'(1)=0 int(b1,0,1)=0
     b3 = -12*t**2 + 28*t**3 - 15*t**4
+    # b(0)=0 b'(0)=0 b(1)=0 b'(1)=1 int(b1,0,1)=0
     b4 = 1.5*t**2 - 4*t**3 + 2.5*t**4
-    b5 = 30*t**2*(1 - t)**2  # integrates to 1, zero ends & slopes
+    # b(0)=0 b'(0)=0 b(1)=0 b'(1)=0 int(b1,0,1)=1
+    b5 = 30*t**2*(1 - t)**2
 
     # combine with correct scaling for derivatives/integral
     return (

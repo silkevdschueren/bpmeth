@@ -7,15 +7,18 @@ from cubic_bp import bfield, afield
 @numba.njit(cache=True)
 def efield(x, y, s, t, h, pars):
     return 0, 0, 0
+        
+import matplotlib.pyplot as plt
 
 class CubicMagnet:
     is_thick = True
 
-    def __init__(self, comp, length, ds, h):
+    def __init__(self, comp, length, ds, h, s0=0.0):
         self.comp = comp
         self.length = length
-        self.ds = ds
+        self.ds = length / np.ceil(length / ds)
         self.h = h
+        self.s0 = s0
 
     def track(self, part):
         c = 299_792_458.0
@@ -33,7 +36,7 @@ class CubicMagnet:
         t_ini = -part.zeta / part.beta0 / c
 
         state = make_state(
-            s=part.s,
+            s=np.full(part.x.shape, self.s0),
             x=part.x,
             y=part.y,
             t=t_ini,
@@ -46,7 +49,7 @@ class CubicMagnet:
         ).T
         out = integrate_numba_vect_final(
             state,
-            (part.s[0], part.s[0] + self.length),
+            (self.s0, self.s0 + self.length),
             self.ds,
             self.h,
             efield,
@@ -60,7 +63,8 @@ class CubicMagnet:
 
         part.x = out["x"]
         part.y = out["y"]
-        part.s = out["s"]
+        part.s += self.length
+        assert np.allclose(out["s"] - self.s0, self.length)
         ax, ay, _ = afield(part.x, part.y, part.s, 0, self.h, self.comp)
         ax = ax * q / p0_SI
         ay = ay * q / p0_SI
@@ -73,5 +77,40 @@ class CubicMagnet:
         part.ay = ay
         assert part.kin_px==out["px"] / p0_SI
         assert part.kin_py==out["py"] / p0_SI
+
+    def track_step_by_step(self, part):
+        steps=np.ceil(self.length / self.ds)
+        mag=CubicMagnet(self.comp,length=self.ds,ds=self.ds,h=self.h)
+        out=[part.copy()]
+        for _ in range(int(steps)):
+            mag.track(part)
+            out.append(part.copy())
+            mag.s0+=self.ds
+
+        return out
+    
+    def plot_x(self, part):
+        out=self.track_step_by_step(part.copy())
+        s_vals=[p.s[0] for p in out]
+        x_vals=[p.x[0] for p in out]
+        plt.plot(s_vals,x_vals,label="x vs s")
+        plt.xlabel("s (m)")
+        plt.ylabel("x (m)")
+        plt.title("Particle Trajectory in Cubic Magnet")
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+    def plot_y(self, part):
+        out=self.track_step_by_step(part.copy())
+        s_vals=[p.s[0] for p in out]
+        y_vals=[p.y[0] for p in out]
+        plt.plot(s_vals,y_vals,label="y vs s",color="orange")
+        plt.xlabel("s (m)")
+        plt.ylabel("y (m)")
+        plt.title("Particle Trajectory in Cubic Magnet")
+        plt.legend()
+        plt.grid()
+        plt.show()
 
 
