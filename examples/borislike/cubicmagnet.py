@@ -4,11 +4,14 @@ import numba
 from curvedboris import make_state, integrate_numba_vect_final
 from cubic_bp import bfield, afield
 
+
 @numba.njit(cache=True)
 def efield(x, y, s, t, h, pars):
     return 0, 0, 0
-        
+
+
 import matplotlib.pyplot as plt
+
 
 class CubicMagnet:
     is_thick = True
@@ -75,25 +78,25 @@ class CubicMagnet:
         part.delta = p - 1.0
         part.ax = ax
         part.ay = ay
-        assert part.kin_px==out["px"] / p0_SI
-        assert part.kin_py==out["py"] / p0_SI
+        assert np.allclose(part.kin_px , out["px"] / p0_SI)
+        assert np.allclose(part.kin_py , out["py"] / p0_SI)
 
     def track_step_by_step(self, part):
-        steps=np.ceil(self.length / self.ds)
-        mag=CubicMagnet(self.comp,length=self.ds,ds=self.ds,h=self.h)
-        out=[part.copy()]
+        steps = np.ceil(self.length / self.ds)
+        mag = CubicMagnet(self.comp, length=self.ds, ds=self.ds, h=self.h)
+        out = [part.copy()]
         for _ in range(int(steps)):
             mag.track(part)
             out.append(part.copy())
-            mag.s0+=self.ds
+            mag.s0 += self.ds
 
         return out
-    
+
     def plot_x(self, part):
-        out=self.track_step_by_step(part.copy())
-        s_vals=[p.s[0] for p in out]
-        x_vals=[p.x[0] for p in out]
-        plt.plot(s_vals,x_vals,label="x vs s")
+        out = self.track_step_by_step(part.copy())
+        s_vals = [p.s[0] for p in out]
+        x_vals = [p.x[0] for p in out]
+        plt.plot(s_vals, x_vals, label="x vs s")
         plt.xlabel("s (m)")
         plt.ylabel("x (m)")
         plt.title("Particle Trajectory in Cubic Magnet")
@@ -102,15 +105,13 @@ class CubicMagnet:
         plt.show()
 
     def plot_y(self, part):
-        out=self.track_step_by_step(part.copy())
-        s_vals=[p.s[0] for p in out]
-        y_vals=[p.y[0] for p in out]
-        plt.plot(s_vals,y_vals,label="y vs s",color="orange")
+        out = self.track_step_by_step(part.copy())
+        s_vals = [p.s[0] for p in out]
+        y_vals = [p.y[0] for p in out]
+        plt.plot(s_vals, y_vals, label="y vs s", color="orange")
         plt.xlabel("s (m)")
         plt.ylabel("y (m)")
         plt.title("Particle Trajectory in Cubic Magnet")
         plt.legend()
         plt.grid()
         plt.show()
-
-
