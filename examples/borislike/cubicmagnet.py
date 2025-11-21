@@ -4,18 +4,24 @@ import numba
 from curvedboris import make_state, integrate_numba_vect_final
 from cubic_bp import bfield, afield
 
+
 @numba.njit(cache=True)
 def efield(x, y, s, t, h, pars):
     return 0, 0, 0
 
+
+import matplotlib.pyplot as plt
+
+
 class CubicMagnet:
     is_thick = True
 
-    def __init__(self, comp, length, ds, h):
+    def __init__(self, comp, length, ds, h, s_start=0.0):
         self.comp = comp
         self.length = length
-        self.ds = ds
+        self.ds = length / np.ceil(length / ds)
         self.h = h
+        self.s_start = s_start
 
     def track(self, part):
         c = 299_792_458.0
@@ -33,7 +39,7 @@ class CubicMagnet:
         t_ini = -part.zeta / part.beta0 / c
 
         state = make_state(
-            s=part.s,
+            s=np.full(part.x.shape, self.s_start),
             x=part.x,
             y=part.y,
             t=t_ini,
@@ -46,7 +52,7 @@ class CubicMagnet:
         ).T
         out = integrate_numba_vect_final(
             state,
-            (part.s[0], part.s[0] + self.length),
+            (self.s_start, self.s_start + self.length),
             self.ds,
             self.h,
             efield,
@@ -58,10 +64,11 @@ class CubicMagnet:
             c,
         )
 
+        ax, ay, _ = afield(out["x"], out["y"], out["s"], 0, self.h, self.comp)
         part.x = out["x"]
         part.y = out["y"]
-        part.s = out["s"]
-        ax, ay, _ = afield(part.x, part.y, part.s, 0, self.h, self.comp)
+        part.s += self.length
+        assert np.allclose(out["s"] - self.s_start, self.length)
         ax = ax * q / p0_SI
         ay = ay * q / p0_SI
         part.px = out["px"] / p0_SI + ax
@@ -71,7 +78,49 @@ class CubicMagnet:
         part.delta = p - 1.0
         part.ax = ax
         part.ay = ay
-        assert part.kin_px==out["px"] / p0_SI
-        assert part.kin_py==out["py"] / p0_SI
+        assert np.allclose(part.kin_px, out["px"] / p0_SI)
+        assert np.allclose(part.kin_py, out["py"] / p0_SI)
 
+    def track_step_by_step(self, part):
+        tpart = part.copy()
+        self.track(tpart)  # final points for check
+        steps = np.ceil(self.length / self.ds)
+        mag = CubicMagnet(
+            self.comp, length=self.ds, ds=self.ds, h=self.h, s_start=self.s_start
+        )
+        out = [part.copy()]
+        for _ in range(int(steps)):
+            mag.track(part)
+            out.append(part.copy())
+            mag.s_start += self.ds
 
+        assert np.allclose(tpart.x, part.x)
+        assert np.allclose(tpart.y, part.y)
+        assert np.allclose(tpart.zeta, part.zeta)
+        assert np.allclose(tpart.s, part.s)
+
+        return out
+
+    def plot_x(self, part):
+        out = self.track_step_by_step(part.copy())
+        s_vals = [p.s[0] for p in out]
+        x_vals = [p.x[0] for p in out]
+        plt.plot(s_vals, x_vals, label="x vs s")
+        plt.xlabel("s (m)")
+        plt.ylabel("x (m)")
+        plt.title("Particle Trajectory in Cubic Magnet")
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+    def plot_y(self, part):
+        out = self.track_step_by_step(part.copy())
+        s_vals = [p.s[0] for p in out]
+        y_vals = [p.y[0] for p in out]
+        plt.plot(s_vals, y_vals, label="y vs s", color="orange")
+        plt.xlabel("s (m)")
+        plt.ylabel("y (m)")
+        plt.title("Particle Trajectory in Cubic Magnet")
+        plt.legend()
+        plt.grid()
+        plt.show()
