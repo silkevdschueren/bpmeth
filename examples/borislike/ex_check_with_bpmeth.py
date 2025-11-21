@@ -25,19 +25,21 @@ def comp_to_sympy(comp):
 p0c=1e9
 c = 299_792_458.0
 comp = np.zeros((9, 4), dtype=np.float64)
-comp[0, 0] = 1
-comp[0, 1] = 1.0
+comp[0, 0] = 0
+comp[0, 1] = 0.0
 comp[1, 0] = 1.0
-comp[1, 2] = 0.1
-comp[2, 0] = 1.0
-comp[2, 1] = 0.1
+comp[1, 1] = 0.0
+comp[1, 2] = 0.0
+comp[3, 0] = 1.0
+comp[3, 1] = 0.0
 bs, b, a = comp_to_sympy(comp)
-h = "0.0"
+h = "0.3"
 length = 0.5
 
-A_magnet = bpmeth.GeneralVectorPotential(hs=h, bs=bs, b=b, a=a)
+#A_magnet = bpmeth.GeneralVectorPotential(hs=h, bs=bs, b=b, a=a)
+A_magnet = bpmeth.GeneralVectorPotential(hs=h, b=[b[0],b[1]])
 H_magnet = bpmeth.Hamiltonian(length=length, curv=float(h), vectp=A_magnet)
-B_magnet = CubicMagnet(comp=comp*p0c/c, length=length, ds=0.01, h=float(h), s_start=0.0)
+B_magnet = CubicMagnet(comp=comp*p0c/c, length=length, ds=0.001, h=float(h), s_start=0.0)
 
 part = xt.Particles(
     x=0.1,
@@ -53,7 +55,7 @@ part = xt.Particles(
 )
 
 p1 = part.copy()
-sol = H_magnet.track(p1, return_sol=True, ivp_opt={"rtol": 1e-10, "atol": 1e-12})
+sol = H_magnet.track(p1, return_sol=True, ivp_opt={"rtol": 1e-12, "atol": 1e-14})
 p2 = part.copy()
 B_magnet.track(p2)
 
