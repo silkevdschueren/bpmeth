@@ -246,7 +246,7 @@ def _em_full_step_jit2(st, ds, h, q, m, c, E_func, B_func, E_pars, B_pars):
     ppx = p0 + (p1 * tz - p2 * ty)
     ppy = p1 + (p2 * tx - p0 * tz)
     ppz = p2 + (p0 * ty - p1 * tx)
-    p0 = p0 + (ppy * sz - ppz * sy)
+    p0 = p0 + (ppy * sz - ppz * sy) 
     p1 = p1 + (ppz * sx - ppx * sz)
     p2 = p2 + (ppx * sy - ppy * sx)
     p0 += coef * Ex

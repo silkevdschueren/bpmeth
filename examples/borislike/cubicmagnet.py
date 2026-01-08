@@ -2,7 +2,18 @@ import numpy as np
 import numba
 
 from curvedboris import make_state, integrate_numba_vect_final
-from cubic_bp import bfield, afield
+# from cubic_bp import bfield, afield
+from ba_fields_2_3_h_nphi5 import bfield, afield
+
+
+def select_fields(nphi):
+    module_name = f"ba_fields_2_3_h_nphi{nphi}"
+    mod = importlib.import_module(module_name)
+
+    # assign into *this* module's global namespace
+    g = sys.modules[__name__].__dict__
+    g['bfield'] = mod.bfield
+    g['afield'] = mod.afield
 
 
 @numba.njit(cache=True)
@@ -101,17 +112,18 @@ class CubicMagnet:
 
         return out
 
-    def plot_x(self, part):
+    def plot_x(self, part, ax=None):
         out = self.track_step_by_step(part.copy())
         s_vals = [p.s[0] for p in out]
         x_vals = [p.x[0] for p in out]
-        plt.plot(s_vals, x_vals, label="x vs s")
-        plt.xlabel("s (m)")
-        plt.ylabel("x (m)")
-        plt.title("Particle Trajectory in Cubic Magnet")
+        if ax is None:
+            fig, ax = plt.subplots()
+        ax.plot(s_vals, x_vals, label="x vs s")
+        ax.set_xlabel("s (m)")
+        ax.set_ylabel("x (m)")
+        ax.set_title("Particle Trajectory in Cubic Magnet")
         plt.legend()
         plt.grid()
-        plt.show()
 
     def plot_y(self, part):
         out = self.track_step_by_step(part.copy())

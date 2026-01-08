@@ -31,7 +31,7 @@ def mk_fieldder_sp(sorder, ab_order):
     return comps
 
 
-def mk_field(ab_order=4, sorder=3, h=True, out=None):
+def mk_field(ab_order=4, sorder=3, h=True, out=None, nphi=5):
     fd = mk_fieldder_sp(sorder, ab_order)
     if h:
         h = sp.var("h", real=True)
@@ -39,7 +39,7 @@ def mk_field(ab_order=4, sorder=3, h=True, out=None):
         h = "0"
     b = fd[1 : ab_order * 2 + 1 : 2]
     a = fd[2 : ab_order * 2 + 1 : 2]
-    vp = bpmeth.GeneralVectorPotential(bs=fd[0], b=b, a=a, hs=h)
+    vp = bpmeth.GeneralVectorPotential(bs=fd[0], b=b, a=a, hs=h, nphi=nphi)
     Bx_sp, By_sp, Bs_sp = vp.get_Bfield(lambdify=False)
     Ax_sp, Ay_sp, As_sp = vp.get_A(lambdify=False)
     # pp=lambda ex:ex.expand().simplify()
@@ -77,6 +77,16 @@ def mk_field(ab_order=4, sorder=3, h=True, out=None):
         print(out)
         comp = np.zeros((ab_order * 2 + 1, sorder + 1))
         return comp
+
+
+def calc_phis():
+    ab = 2
+    sorder = 3
+    h = True
+    for nphi in range(8):
+        fn = f"ba_fields_{ab}_{sorder}_h_nphi{nphi}.py"
+        mk_field(ab_order=ab, sorder=sorder, h=h, out=fn, nphi=nphi)
+
 
 
 if __name__ == "__main__":
