@@ -345,72 +345,126 @@ class Fieldmap:
         :param radius: Interpolation radius, default 0.01. See interpolate_points for its function
         :return: Fieldmap object in Frenet-Serret coordinates.
         """
+            
+        l_magn = rho * phi
 
-        l_magn = rho*phi
-        
-        # ----- Straight part at negative s -----
-        sarr = sFS[sFS<-l_magn/2] + l_magn/2
-        
-        r, theta, s = np.meshgrid(rFS, thetaFS, sarr, indexing='ij')
-        x_ns = r*np.cos(theta)
-        y_ns = r*np.sin(theta)
-        s_ns = s - l_magn/2
+        # One single mesh for the complete FS coordinate system
+        r, theta, s = np.meshgrid(rFS, thetaFS, sFS, indexing='ij')
 
-        X_ns = (rho + x_ns) * np.cos(phi/2) + s * np.sin(phi/2)  # Global coordinates
-        Y_ns = y_ns
-        Z_ns = -(rho + x_ns) * np.sin(phi/2) + s * np.cos(phi/2)
+        # Masks identifying the three regions
+        mask_ns = s < -l_magn / 2
+        mask_b  = np.abs(s) <= l_magn / 2
+        mask_ps = s > l_magn / 2
 
-        XYZ = np.array([X_ns.flatten(), Y_ns.flatten(), Z_ns.flatten()]).T
+        # Cylindrical coordinates in the local transverse plane
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+
+        # Allocate global coordinates
+        X = np.empty_like(s)
+        Y = np.empty_like(s)
+        Z = np.empty_like(s)
+
+        # ------------------------------------------------------------------
+        # Negative straight part
+        # ------------------------------------------------------------------
+        s_ns = s - (-l_magn / 2)
+
+        X[mask_ns] = (
+            (rho + x[mask_ns]) * np.cos(phi / 2)
+            + s_ns[mask_ns] * np.sin(phi / 2)
+        )
+        Y[mask_ns] = y[mask_ns]
+        Z[mask_ns] = (
+            -(rho + x[mask_ns]) * np.sin(phi / 2)
+            + s_ns[mask_ns] * np.cos(phi / 2)
+        )
+
+        # ------------------------------------------------------------------
+        # Bent part
+        # ------------------------------------------------------------------
+        angle = s / rho
+
+        X[mask_b] = np.cos(angle[mask_b]) * (rho + x[mask_b])
+        Y[mask_b] = y[mask_b]
+        Z[mask_b] = np.sin(angle[mask_b]) * (rho + x[mask_b])
+
+        # ------------------------------------------------------------------
+        # Positive straight part
+        # ------------------------------------------------------------------
+        s_ps = s - l_magn / 2
+
+        X[mask_ps] = (
+            (rho + x[mask_ps]) * np.cos(phi / 2)
+            - s_ps[mask_ps] * np.sin(phi / 2)
+        )
+        Y[mask_ps] = y[mask_ps]
+        Z[mask_ps] = (
+            (rho + x[mask_ps]) * np.sin(phi / 2)
+            + s_ps[mask_ps] * np.cos(phi / 2)
+        )
+
+        # ------------------------------------------------------------------
+        # Interpolate field only once, on the complete mesh
+        # ------------------------------------------------------------------
+        XYZ = np.column_stack([
+            X.ravel(),
+            Y.ravel(),
+            Z.ravel()
+        ])
+
         dst = pv.PolyData(XYZ).interpolate(self.src, radius=radius)
-        Bx_ns = dst["Bx"]*np.cos(phi/2) + dst["Bs"]*np.sin(phi/2)
-        By_ns = dst["By"]
-        Bs_ns = -dst["Bx"]*np.sin(phi/2) + dst["Bs"]*np.cos(phi/2)
 
-        # ----- Bent part -----
-        sarr = sFS[abs(sFS)<l_magn/2]
-        r, theta, s = np.meshgrid(rFS, thetaFS, sarr, indexing='ij')
-        x_b = r*np.cos(theta)
-        y_b = r*np.sin(theta)
-        s_b = s
+        # Allocate field components
+        Bx = np.empty_like(s)
+        By = np.empty_like(s)
+        Bs = np.empty_like(s)
 
-        X_b = np.cos(s/rho) * (rho + x_b)  # Global coordinates
-        Y_b = y_b
-        Z_b = np.sin(s/rho) * (rho + x_b)
+        # ------------------------------------------------------------------
+        # Field transformation: negative straight
+        # ------------------------------------------------------------------
+        Bx[mask_ns] = (
+            dst["Bx"][mask_ns.ravel()] * np.cos(phi / 2)
+            + dst["Bs"][mask_ns.ravel()] * np.sin(phi / 2)
+        )
+        By[mask_ns] = dst["By"][mask_ns.ravel()]
+        Bs[mask_ns] = (
+            -dst["Bx"][mask_ns.ravel()] * np.sin(phi / 2)
+            + dst["Bs"][mask_ns.ravel()] * np.cos(phi / 2)
+        )
 
-        XYZ = np.array([X_b.flatten(), Y_b.flatten(), Z_b.flatten()]).T
-        angle = s.ravel()/rho
-        dst = pv.PolyData(XYZ).interpolate(self.src, radius=radius)
-        Bx_b = dst["Bx"]*np.cos(angle) - dst["Bs"]*np.sin(angle)
-        By_b = dst["By"]
-        Bs_b = dst["Bx"]*np.sin(angle) + dst["Bs"]*np.cos(angle)
+        # ------------------------------------------------------------------
+        # Field transformation: bent
+        # ------------------------------------------------------------------
+        Bx_b = dst["Bx"] * np.cos(s.ravel() / rho) - dst["Bs"] * np.sin(s.ravel() / rho)
+        Bs_b = dst["Bx"] * np.sin(s.ravel() / rho) + dst["Bs"] * np.cos(s.ravel() / rho)
 
-        # ----- Straight part at positive s -----
-        sarr = sFS[sFS>l_magn/2] - l_magn/2
-        r, theta, s = np.meshgrid(rFS, thetaFS, sarr, indexing='ij')
-        x_ps = r*np.cos(theta)
-        y_ps = r*np.sin(theta)
-        s_ps = s + l_magn/2
+        Bx[mask_b] = Bx_b[mask_b.ravel()]
+        By[mask_b] = dst["By"][mask_b.ravel()]
+        Bs[mask_b] = Bs_b[mask_b.ravel()]
 
-        X_ps = (rho + x_ps) * np.cos(phi/2) - s * np.sin(phi/2)  # Global coordinates
-        Y_ps = y_ps
-        Z_ps = (rho + x_ps) * np.sin(phi/2) + s * np.cos(phi/2)
+        # ------------------------------------------------------------------
+        # Field transformation: positive straight
+        # ------------------------------------------------------------------
+        Bx[mask_ps] = (
+            dst["Bx"][mask_ps.ravel()] * np.cos(phi / 2)
+            - dst["Bs"][mask_ps.ravel()] * np.sin(phi / 2)
+        )
+        By[mask_ps] = dst["By"][mask_ps.ravel()]
+        Bs[mask_ps] = (
+            dst["Bx"][mask_ps.ravel()] * np.sin(phi / 2)
+            + dst["Bs"][mask_ps.ravel()] * np.cos(phi / 2)
+        )
 
-        XYZ = np.array([X_ps.flatten(), Y_ps.flatten(), Z_ps.flatten()]).T
-        dst = pv.PolyData(XYZ).interpolate(self.src, radius=radius)
-        Bx_ps = dst["Bx"]*np.cos(phi/2) - dst["Bs"]*np.sin(phi/2)
-        By_ps = dst["By"]
-        Bs_ps = dst["Bx"]*np.sin(phi/2) + dst["Bs"]*np.cos(phi/2)
-
-        # Combine all
-        x = np.concatenate((x_ns.flatten(), x_b.flatten(), x_ps.flatten()))
-        y = np.concatenate((y_ns.flatten(), y_b.flatten(), y_ps.flatten()))
-        s = np.concatenate((s_ns.flatten(), s_b.flatten(), s_ps.flatten()))
-
-        Bx = np.concatenate((Bx_ns.flatten(), Bx_b.flatten(), Bx_ps.flatten()))
-        By = np.concatenate((By_ns.flatten(), By_b.flatten(), By_ps.flatten()))
-        Bs = np.concatenate((Bs_ns.flatten(), Bs_b.flatten(), Bs_ps.flatten()))
-
-        data = np.array([x, y, s, Bx, By, Bs]).T
+        # Same mesh structure as r, theta, s
+        data = np.column_stack([
+            x.ravel(),
+            y.ravel(),
+            s.ravel(),
+            Bx.ravel(),
+            By.ravel(),
+            Bs.ravel()
+        ])
 
         return Fieldmap(data)
     

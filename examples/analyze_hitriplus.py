@@ -39,7 +39,7 @@ thetaFS = np.arange(ntheta)/ntheta*2*np.pi
 sFS = np.linspace(-0.9*l_magn, 0.9*l_magn, ns)
 
 cctmagnet_FS_c = cctmagnet.calc_FS_coords_cylindrical(rFS, thetaFS, sFS, rho, phi, radius=0.005)
-cctmagnet_FS_c.harmonic_analysis_at_s(0, rr=rFS, ntheta=ntheta, ns=ns, order=3)
+# cctmagnet_FS_c.harmonic_analysis_at_s(0, rr=rFS, ntheta=ntheta, ns=ns, order=3)
 
 fig, ax = plt.subplots()
 cctmagnet_FS_c.s_harmonics(3, rFS, ntheta, ns, ax=ax)
