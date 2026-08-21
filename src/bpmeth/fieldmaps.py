@@ -924,13 +924,13 @@ class Fieldmap:
     
         anofs = np.zeros((len(svals), order))
         bnofs = np.zeros((len(svals), order))
-        anhigherorder = np.zeros((len(svals), order+1))
-        bnhigherorder = np.zeros((len(svals), order+1))
+        anhigherorder = np.zeros((len(svals), order+2))
+        bnhigherorder = np.zeros((len(svals), order+2))
         anstd = np.zeros((len(svals), order))
         bnstd = np.zeros((len(svals), order))
         for i, spos in enumerate(svals):
             anofs[i], bnofs[i] = self.harmonic_analysis_at_s(s_index=i, rr=rr, ntheta=ntheta, ns=ns, order=order)
-            anhigherorder[i], bnhigherorder[i]= self.harmonic_analysis_at_s(s_index=i, rr=rr, ntheta=ntheta, ns=ns, order=order+1)
+            anhigherorder[i], bnhigherorder[i]= self.harmonic_analysis_at_s(s_index=i, rr=rr, ntheta=ntheta, ns=ns, order=order+2)
             anstd[i] = np.abs(anofs[i] - anhigherorder[i,:order])
             bnstd[i] = np.abs(bnofs[i] - bnhigherorder[i,:order])
 
@@ -938,9 +938,9 @@ class Fieldmap:
             for i in range(order):
                 ax.plot(svals, bnofs[:,i], label=f"b{i+1}")
                 ax.fill_between(svals, bnofs[:,i]-bnstd[:,i], bnofs[:,i]+bnstd[:,i], alpha=0.5)
-                ax.title.set_text("Normal multipoles")
-                ax.set_xlabel("s")
-                ax.set_ylabel("bn")
+                # ax.title.set_text("Normal multipoles")
+                # ax.set_xlabel("s")
+                # ax.set_ylabel("bn")
                 ax.legend(bbox_to_anchor=(1, 1), loc='upper left')
             
         return svals, anofs, bnofs, anstd, bnstd

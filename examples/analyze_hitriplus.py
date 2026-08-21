@@ -16,19 +16,19 @@ cctmagnet = bpmeth.Fieldmap(data)
 
 xFS = np.linspace(-apt, apt, 101)
 yFS = [0]
-sFS = np.linspace(-0.9*l_magn, 0.9*l_magn, 501)
+sFS = np.linspace(-0.9*l_magn, 0.9*l_magn, 101)
 cctmagnet_FS = cctmagnet.calc_FS_coords(xFS, yFS, sFS, rho, phi, radius=0.005)
 
-# for method in ["polynomial", "finite_difference"]:
-#     fig, ax = plt.subplots(figsize=(6,4))
-#     cctmagnet_FS.s_multipoles(3, ax=ax, xmax=apt/2, method=method)
-#     ax.set_yscale('symlog')
-#     ax.set_xlabel("s [m]")
-#     ax.set_ylabel(r"multipole strength $[m^{-n}]$")
-#     plt.legend()
-#     plt.tight_layout()
-#     plt.savefig(f"cct_multipoles_{method}.png", dpi=300)
-#     plt.close()
+for method in ["polynomial", "finite_difference"]:
+    fig, ax = plt.subplots(figsize=(6,4))
+    cctmagnet_FS.s_multipoles(3, ax=ax, xmax=apt/2, method=method)
+    ax.set_yscale('symlog')
+    ax.set_xlabel("s [m]")
+    ax.set_ylabel(r"multipole strength $[m^{-n}]$")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"cct_multipoles_{method}.png", dpi=300)
+    plt.close()
 
 
 rmin, rmax, nr = 0.005, apt/2, 51
@@ -41,7 +41,7 @@ sFS = np.linspace(-0.9*l_magn, 0.9*l_magn, ns)
 cctmagnet_FS_c = cctmagnet.calc_FS_coords_cylindrical(rFS, thetaFS, sFS, rho, phi, radius=0.005)
 # cctmagnet_FS_c.harmonic_analysis_at_s(0, rr=rFS, ntheta=ntheta, ns=ns, order=3)
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(6,4))
 cctmagnet_FS_c.s_harmonics(3, rFS, ntheta, ns, ax=ax)
 ax.set_yscale('symlog')
 ax.set_xlabel("s [m]")
@@ -49,3 +49,4 @@ ax.set_ylabel(r"multipole strength $[m^{-n}]$")
 plt.legend()
 plt.tight_layout()
 plt.savefig(f"cct_multipoles_harmonic_analysis.png", dpi=300)
+plt.close()
