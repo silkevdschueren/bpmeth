@@ -351,7 +351,7 @@ class Fieldmap:
         # ----- Straight part at negative s -----
         sarr = sFS[sFS<-l_magn/2] + l_magn/2
         
-        s, r, theta = np.meshgrid(sarr, rFS, thetaFS)
+        r, theta, s = np.meshgrid(rFS, thetaFS, sarr, indexing='ij')
         x_ns = r*np.cos(theta)
         y_ns = r*np.sin(theta)
         s_ns = s - l_magn/2
@@ -368,7 +368,7 @@ class Fieldmap:
 
         # ----- Bent part -----
         sarr = sFS[abs(sFS)<l_magn/2]
-        s, r, theta = np.meshgrid(sarr, rFS, thetaFS)
+        r, theta, s = np.meshgrid(rFS, thetaFS, sarr, indexing='ij')
         x_b = r*np.cos(theta)
         y_b = r*np.sin(theta)
         s_b = s
@@ -386,7 +386,7 @@ class Fieldmap:
 
         # ----- Straight part at positive s -----
         sarr = sFS[sFS>l_magn/2] - l_magn/2
-        s, r, theta = np.meshgrid(sarr, rFS, thetaFS)
+        r, theta, s = np.meshgrid(rFS, thetaFS, sarr, indexing='ij')
         x_ps = r*np.cos(theta)
         y_ps = r*np.sin(theta)
         s_ps = s + l_magn/2
@@ -844,7 +844,7 @@ class Fieldmap:
         :return: an, bn (ndarray): Skew and normal multipole coefficient arrays.
         """
         
-        ByiBx = (self.src['By'].reshape(ns, len(rr), ntheta) + 1j*self.src['Bx'].reshape(ns, len(rr), ntheta)).transpose(1,2,0)  # r, theta, s as order
+        ByiBx = self.src['By'].reshape(len(rr), ntheta, ns) + 1j*self.src['Bx'].reshape(len(rr), ntheta, ns)
         an, bn = calc_harmonics(ByiBx, s_index=s_index, nk=order, rr=rr)
         return an, bn
     
@@ -865,18 +865,15 @@ class Fieldmap:
         were determined, anofs and bnofs are the arrays of multipole coefficients as a function of s and anstd and bnstd are an 
         estimate of their errors by taking a higher order analysis.
         """
-
-        svals = np.unique(self.src['s'])
         
+        svals = np.unique(self.src['s'])
+    
         anofs = np.zeros((len(svals), order))
         bnofs = np.zeros((len(svals), order))
         anhigherorder = np.zeros((len(svals), order+1))
         bnhigherorder = np.zeros((len(svals), order+1))
         anstd = np.zeros((len(svals), order))
         bnstd = np.zeros((len(svals), order))
-        
-        coeffs = np.zeros((len(svals), order))
-        coeffsstd = np.zeros((len(svals), order))
         for i, spos in enumerate(svals):
             anofs[i], bnofs[i] = self.harmonic_analysis_at_s(s_index=i, rr=rr, ntheta=ntheta, ns=ns, order=order)
             anhigherorder[i], bnhigherorder[i]= self.harmonic_analysis_at_s(s_index=i, rr=rr, ntheta=ntheta, ns=ns, order=order+1)

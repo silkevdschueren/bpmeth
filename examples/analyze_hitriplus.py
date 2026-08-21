@@ -33,19 +33,16 @@ cctmagnet_FS = cctmagnet.calc_FS_coords(xFS, yFS, sFS, rho, phi, radius=0.005)
 
 rmin, rmax, nr = 0.005, apt/2, 51
 ntheta = 128
+ns=101
 rFS = np.linspace(rmin, rmax, nr)
 thetaFS = np.arange(ntheta)/ntheta*2*np.pi
-
-ns=101
 sFS = np.linspace(-0.9*l_magn, 0.9*l_magn, ns)
 
 cctmagnet_FS_c = cctmagnet.calc_FS_coords_cylindrical(rFS, thetaFS, sFS, rho, phi, radius=0.005)
-
-rr = np.linspace(rmin, rmax, nr)
-cctmagnet_FS_c.harmonic_analysis_at_s(0, rr=rr, ntheta=ntheta, ns=ns, order=3)
+cctmagnet_FS_c.harmonic_analysis_at_s(0, rr=rFS, ntheta=ntheta, ns=ns, order=3)
 
 fig, ax = plt.subplots()
-cctmagnet_FS_c.s_harmonics(3, rr, ntheta, ns, ax=ax)
+cctmagnet_FS_c.s_harmonics(3, rFS, ntheta, ns, ax=ax)
 ax.set_yscale('symlog')
 ax.set_xlabel("s [m]")
 ax.set_ylabel(r"multipole strength $[m^{-n}]$")
