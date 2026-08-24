@@ -6,7 +6,7 @@ import scipy as sc
 import matplotlib.pyplot as plt
 from .poly_fit import fit_segment, plot_fit
 from .harmonics import *
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import LinearNDInterpolator
 
 
 def Enge(x, *params):
@@ -342,7 +342,8 @@ class Fieldmap:
         :param sFS: Array of s positions in Frenet-Serret coordinates.
         :param rho: Bending radius of the magnet.
         :param phi: Angle of the magnet in radians. Related to the magnetic length by l_magn = rho * phi.
-        :param radius: Interpolation radius, default 0.01. See interpolate_points for its function
+        :param radius: Interpolation radius for gaussian interpolation. See interpolate_points for its function.
+        If none, use a LinearNDInterpolator from scipy.
         :return: Fieldmap object in Frenet-Serret coordinates.
         """
             
@@ -407,13 +408,39 @@ class Fieldmap:
         # ------------------------------------------------------------------
         # Interpolate field only once, on the complete mesh
         # ------------------------------------------------------------------
+        
         XYZ = np.column_stack([
             X.ravel(),
             Y.ravel(),
             Z.ravel()
         ])
 
-        dst = pv.PolyData(XYZ).interpolate(self.src, radius=radius)
+        if radius is not None:
+            dst = pv.PolyData(XYZ).interpolate(self.src, radius=radius)
+        
+        else:
+            points = self.src.points
+
+            interp_Bx = LinearNDInterpolator(
+                points,
+                self.src["Bx"],
+                fill_value=np.nan
+            )
+            interp_By = LinearNDInterpolator(
+                points,
+                self.src["By"],
+                fill_value=np.nan
+            )
+            interp_Bs = LinearNDInterpolator(
+                points,
+                self.src["Bs"],
+                fill_value=np.nan
+            )
+
+            dst = pv.PolyData(XYZ)
+            dst["Bx"] = interp_Bx(XYZ)
+            dst["By"] = interp_By(XYZ)
+            dst["Bs"] = interp_Bs(XYZ)
 
         # Allocate field components
         Bx = np.empty_like(s)
