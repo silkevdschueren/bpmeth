@@ -326,7 +326,66 @@ class Fieldmap:
         data = np.array([x, y, s, Bx, By, Bs]).T
 
         return Fieldmap(data)
-    
+
+    def calc_coords_cylindrical(self, r, theta, s, radius=0.01):
+        """
+        Determine the fieldmap in a straight cylindrical coordinate frame.
+
+        The straight frame shares the same s axis as the source fieldmap, with
+        the cylindrical coordinates related to Cartesian coordinates by
+
+            x = r * cos(theta)
+            y = r * sin(theta)
+            z = s
+
+        The field is interpolated directly from the source fieldmap using
+        PyVista's radius-based interpolation.
+
+        :param r: Array of radial positions.
+        :param theta: Array of angular positions in radians.
+        :param s: Array of longitudinal positions.
+        :param radius: Interpolation radius for PyVista's interpolation.
+        :return: Fieldmap object in cylindrical coordinates.
+        """
+
+        # One single mesh for the complete cylindrical coordinate system
+        r, theta, s = np.meshgrid(r, theta, s, indexing="ij")
+
+        # Cylindrical -> Cartesian coordinates
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+
+        # Points at which the source fieldmap is interpolated
+        XYZ = np.column_stack([
+            x.ravel(),
+            y.ravel(),
+            s.ravel()
+        ])
+
+        # Interpolate field on the complete mesh
+        dst = pv.PolyData(XYZ).interpolate(
+            self.src,
+            radius=radius
+        )
+
+        # Field components are already expressed in the same straight frame,
+        # so no coordinate transformation is required.
+        Bx = dst["Bx"]
+        By = dst["By"]
+        Bs = dst["Bs"]
+
+        # Return data in cylindrical coordinates
+        data = np.column_stack([
+            x.ravel(),
+            y.ravel(),
+            s.ravel(),
+            Bx,
+            By,
+            Bs
+        ])
+
+        return Fieldmap(data)
+        
 
     def calc_FS_coords_cylindrical(self, rFS, thetaFS, sFS, rho, phi, radius=0.01):
         """
@@ -722,7 +781,6 @@ class Fieldmap:
         data = np.array([xx, yy, ss, Bxx, Byy, Bss]).T
     
         return Fieldmap(data)
-    
     
     def rescale(self, scalefactor):
         """ 
