@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from .poly_fit import fit_segment, plot_fit
 from .harmonics import *
 from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import RegularGridInterpolator
+import warnings
 
 
 def Enge(x, *params):
@@ -361,13 +363,85 @@ class Fieldmap:
             y.ravel(),
             s.ravel()
         ])
+        
+        if radius is not None:
+            # Interpolate field on the complete mesh
+            dst = pv.PolyData(XYZ).interpolate(
+                self.src,
+                radius=radius
+            )
+        
+        else:
+            # The source fieldmap is ordered monotonically in s, but x is not
+            # necessarily monotonic. Therefore, do not pass self.src.points
+            # directly to RegularGridInterpolator.
+            points = self.src.points
 
-        # Interpolate field on the complete mesh
-        dst = pv.PolyData(XYZ).interpolate(
-            self.src,
-            radius=radius
-        )
+            # Source longitudinal coordinate.
+            s_src = points[:, 2]
 
+            # Get the unique, sorted s positions.
+            s_grid = np.unique(s_src)
+
+            # Source transverse coordinates.
+            x_src = points[:, 0]
+            y_src = points[:, 1]
+
+            # The (x, y) grid is assumed to be identical for every s slice.
+            # Sort the points within each s slice so that we can construct
+            # a regular (x, y, s) array.
+            x_grid = np.unique(x_src)
+            y_grid = np.unique(y_src)
+
+            shape = (len(x_grid), len(y_grid), len(s_grid))
+
+            Bx_grid = np.full(shape, np.nan)
+            By_grid = np.full(shape, np.nan)
+            Bs_grid = np.full(shape, np.nan)
+
+            # Map source coordinates to grid indices.
+            x_index = {x: i for i, x in enumerate(x_grid)}
+            y_index = {y: i for i, y in enumerate(y_grid)}
+            s_index = {s: i for i, s in enumerate(s_grid)}
+
+            for i, point in enumerate(points):
+                ix = x_index[point[0]]
+                iy = y_index[point[1]]
+                iz = s_index[point[2]]
+
+                Bx_grid[ix, iy, iz] = self.src["Bx"][i]
+                By_grid[ix, iy, iz] = self.src["By"][i]
+                Bs_grid[ix, iy, iz] = self.src["Bs"][i]
+
+            # RegularGridInterpolator now receives the actual coordinate axes,
+            # rather than self.src.points.
+            interp_Bx = RegularGridInterpolator(
+                (x_grid, y_grid, s_grid),
+                Bx_grid, method='linear', 
+                bounds_error=False,
+                fill_value=np.nan,
+            )
+
+            interp_By = RegularGridInterpolator(
+                (x_grid, y_grid, s_grid),
+                By_grid, method='linear',  
+                bounds_error=False,
+                fill_value=np.nan,
+            )
+
+            interp_Bs = RegularGridInterpolator(
+                (x_grid, y_grid, s_grid),
+                Bs_grid, method='linear', 
+                bounds_error=False,
+                fill_value=np.nan,
+            )
+
+            dst = pv.PolyData(XYZ)
+
+            dst["Bx"] = interp_Bx(XYZ)
+            dst["By"] = interp_By(XYZ)
+            dst["Bs"] = interp_Bs(XYZ)
+                
         # Field components are already expressed in the same straight frame,
         # so no coordinate transformation is required.
         Bx = dst["Bx"]
@@ -609,7 +683,7 @@ class Fieldmap:
         By_g[mask_ps] = By[mask_ps]
         Bz_g[mask_ps] = -Bx[mask_ps]*np.sin(phi/2) + Bs[mask_ps]*np.cos(phi/2)
 
-        data = np.array([X, Y, Z, Bx_g, By_g, Bs_g]).T
+        data = np.array([X, Y, Z, Bx_g, By_g, Bz_g]).T
         return Fieldmap(data)
 
 
@@ -782,6 +856,43 @@ class Fieldmap:
     
         return Fieldmap(data)
     
+    def mirror_y(self, top=True):
+        """
+        Mirror the fieldmap around y=0. Useful when only half of the magnet is given.
+        :param top: If True, take top side and mirror, otherwise bottom side.
+        :return: New mirrored Fieldmap object.
+        """
+        
+        warnings.warn("ONLY WORKS FOR NORMAL MULTIPOLES, THE SIGN WILL BE OFF FOR THE SKEW PART")
+        
+        y = self.src['y']
+        if top:
+            mask = y >= 0
+        else:
+            mask = y <= 0
+
+        x = self.src['x'][mask]
+        y = self.src['y'][mask]
+        s = self.src['s'][mask]
+
+        Bx = self.src['Bx'][mask]
+        By = self.src['By'][mask]
+        Bs = self.src['Bs'][mask]
+
+        xx = np.concatenate((x, x))
+        yy = np.concatenate((y, -y))
+        ss = np.concatenate((s, s))
+        
+        Bxx = np.concatenate((Bx, -Bx))
+        Byy = np.concatenate((By, By))
+        Bss = np.concatenate((Bs, Bs))
+
+        # Create new dataframe to update geometry and not only the coordinates of the points, 
+        # needed for interpolation later on, easier than updating it in place.        
+        data = np.array([xx, yy, ss, Bxx, Byy, Bss]).T
+    
+        return Fieldmap(data)
+        
     def rescale(self, scalefactor):
         """ 
         :param scalefactor: Factor by which to scale the field values.
@@ -1015,7 +1126,7 @@ class Fieldmap:
         bnstd = np.zeros((len(svals), order))
         for i, spos in enumerate(svals):
             anofs[i], bnofs[i] = self.harmonic_analysis_at_s(s_index=i, rr=rr, ntheta=ntheta, ns=ns, order=order)
-            anhigherorder[i], bnhigherorder[i]= self.harmonic_analysis_at_s(s_index=i, rr=rr, ntheta=ntheta, ns=ns, order=order+2)
+            anhigherorder[i], bnhigherorder[i] = self.harmonic_analysis_at_s(s_index=i, rr=rr, ntheta=ntheta, ns=ns, order=order+2)
             anstd[i] = np.abs(anofs[i] - anhigherorder[i,:order])
             bnstd[i] = np.abs(bnofs[i] - bnhigherorder[i,:order])
 
@@ -1062,7 +1173,7 @@ class Fieldmap:
                 if xmax is None:
                     xmax = np.max(abs(self.src['x']))
                 coeffs[i] = self.fft_at_s(spos, r=xmax/2, order=order, radius=radius).real
-                coeffsstd[i] = np.abs(coeffs[i] - self.fft_at_s(spos, r=xmax/4, order=order, radius=radius).real)
+                coeffsstd[i] = np.abs(coeffs[i] - self.fft_at_s(spos, r=3*xmax/4, order=order, radius=radius).real)
 
                 
         for i in range(order):
@@ -1122,9 +1233,12 @@ class Fieldmap:
         mask = (svals>smin) & (svals<smax)
         
         integrals = np.zeros(order)
+        errors = np.zeros(order)
         for i in range(order):
             integrals[i] = np.trapezoid(coeffs[:,i][mask], svals[mask])
-        return integrals
+            errors[i] = np.trapezoid(coeffsstd[:,i][mask], svals[mask])
+
+        return integrals, errors
 
 
     def calc_Fint(self, gap, b0):

@@ -11,9 +11,9 @@ length = 1
 angle = 1
 
 b1 = 1
-x0 = 0
+x0 = 0.05
 y0 = 0
-px0 = 0
+px0 = 0.2
 py0 = 0
 ptau0 = 0
 beta0 = 1
@@ -35,7 +35,12 @@ pxder = -px0*h*np.sin(s*h) + ( np.sqrt((1+delta)**2-px0**2-py0**2) - (1/h + x0)*
 x = 1/h * 1/b1 * ( h*np.sqrt((1+delta)**2-px**2-py0**2) - pxder - b1)
 y = h*py0/b1*s - py0/b1 * ( np.arcsin(px/np.sqrt((1+delta)**2)) - np.arcsin(px0/np.sqrt((1+delta)**2)) ) + y0
 
-fb.plot_trajectory_zx(s,x,y)
-fb.plot_trajectory_zxy(s,x,y)
+cv = bpmeth.CanvasZX()
+fb.plot_trajectory_zx(s,x,y, canvas=cv, color="black")
+cv.ax.grid(False)
+plt.tight_layout()
+plt.savefig("trajectory_curved_dipole.png",dpi=300)
+plt.close()
 
+fb.plot_trajectory_zxy(s,x,y)
 plt.show()

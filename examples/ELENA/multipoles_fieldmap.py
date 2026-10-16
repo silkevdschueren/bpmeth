@@ -28,6 +28,7 @@ for method in ["polynomial", "finite_difference"]:
     ax.set_yscale('symlog')
     ax.set_xlabel("s [m]")
     ax.set_ylabel(r"multipole strength $[m^{-n}]$")
+    ax.set_xlim((-0.86, 0.86))
     plt.legend()
     plt.tight_layout()
     plt.savefig(f"ELENA_multipoles_{method}.png", dpi=300)
@@ -39,23 +40,24 @@ Brho = B_dip_T * rho  # T.m
 magnet = bpmeth.Fieldmap(data)
 magnet.rescale(1/Brho)
 
-rmin, rmax, nr = 0.001, 0.03, 21
+rmin, rmax, nr = 0.001, 0.01115, 8  # 0.001, 0.03, 21
 ntheta = 64
 rFS = np.linspace(rmin, rmax, nr)
 thetaFS = np.arange(ntheta)/ntheta*2*np.pi
 
 radius = 0.00000001
 vapt = 0.076
-sFS = np.concatenate([np.arange(-l_magn/2 - 5*vapt, -l_magn/2, 0.001), np.arange(-l_magn/2, l_magn/2, 0.001), np.arange(l_magn/2, l_magn/2 + 5*vapt, 0.001)])
+sFS = np.unique(np.concatenate([np.arange(-l_magn/2 - 5*vapt, -l_magn/2, 0.001), np.arange(-l_magn/2, l_magn/2, 0.001), np.arange(l_magn/2, l_magn/2 + 5*vapt, 0.001)]))
 ns = len(sFS)
 magnet_FS_c = magnet.calc_FS_coords_cylindrical(rFS, thetaFS, sFS, rho, phi, radius=radius)
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(6,4))
 rr = np.linspace(rmin, rmax, nr)
 magnet_FS_c.s_harmonics(3, rr, ntheta=ntheta, ns=ns, ax=ax)
 ax.set_yscale('symlog')
 ax.set_xlabel("s [m]")
 ax.set_ylabel(r"multipole strength $[m^{-n}]$")
+ax.set_xlim((-0.86, 0.86))
 plt.legend()
 plt.tight_layout()
 plt.savefig(f"ELENA_multipoles_harmonic_analysis.png", dpi=300)

@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 length = 5
 angle = 0
 
-BBs = 1 # Only q Bs / P0 plays a role so lets call this quantity BBs
+bs = 1 # Only q Bs / P0 plays a role so lets call this quantity bs
 x0 = 0
 y0 = 0
-px0 = 0.2
+px0 = 0.9
 py0 = 0
 ptau0 = 0
 beta0 = 1
@@ -28,16 +28,20 @@ fb = bpmeth.BendFrame(fr,length,angle)
 # Plot a trajectory with solenoid
 delta0 = np.sqrt(1 + 2*ptau0/beta0 + ptau0**2) - 1
 # Square root in initial coordinates since conserved
-omega = BBs / np.sqrt((1+delta0)**2 - (px0 + BBs/2*y0)**2 - (py0 - BBs/2*x0)**2) 
+omega = -bs / np.sqrt((1+delta0)**2 - (px0 + bs/2*y0)**2 - (py0 - bs/2*x0)**2) 
 
 s = np.linspace(0,length,500)
 cc = np.cos(omega*s)
 ss = np.sin(omega*s)
 
-x = 1/2*(cc+1)*x0 + 1/BBs*ss*px0 + 1/2*ss*y0 - 1/BBs*(cc-1)*py0
-y = -1/2*ss*x0 + 1/BBs*(cc-1)*px0 + 1/2*(cc+1)*y0 + 1/BBs*ss*py0
+x  = 1/2*(cc+1)*x0  - 1/bs*ss*px0     - 1/2*ss*y0      - 1/bs*(cc-1)*py0
+y  = 1/2*ss*x0      + 1/bs*(cc-1)*px0 + 1/2*(cc+1)*y0  - 1/bs*ss*py0
+px = bs/4*ss*x0     + 1/2*(cc+1)*px0  + bs/4*(cc-1)*y0 -1/bs*ss*py0
+py = bs/4*(1-cc)*x0 + 1/2*ss*px0      + bs/4*ss*y0     +1/2*(cc+1)*py0
 
 fb.plot_trajectory_zx(s,x,y)
-fb.plot_trajectory_zxy(s,x,y)
+cv = bpmeth.CanvasZXY()
+fb.plot_trajectory_zxy(s,x,y, canvas=cv, color="black")
+cv.ax.grid(False)
 
-plt.show()
+plt.savefig("solenoid_trajectory.png", dpi=300)
