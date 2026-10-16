@@ -40,8 +40,8 @@ px = bs/4*ss*x0     + 1/2*(cc+1)*px0  + bs/4*(cc-1)*y0 -1/bs*ss*py0
 py = bs/4*(1-cc)*x0 + 1/2*ss*px0      + bs/4*ss*y0     +1/2*(cc+1)*py0
 
 fb.plot_trajectory_zx(s,x,y)
+plt.close()
 cv = bpmeth.CanvasZXY()
 fb.plot_trajectory_zxy(s,x,y, canvas=cv, color="black")
 cv.ax.grid(False)
-
 plt.savefig("solenoid_trajectory.png", dpi=300)
